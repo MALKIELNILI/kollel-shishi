@@ -166,11 +166,15 @@ function App(){
   );
 }
 
+const MEIR_AMOUNTS={4:20800,5:25200};
+
 // ── MAIN TAB ─────────────────────────────────────────────────
 function MainTab({members,monthData,selMonth,setSelMonth}){
+  const[search,setSearch]=useState('');
   const nFridays=countFridays(selMonth);
   const fullAmount=nFridays*RATE;
   const payDate=lastFridayStr(selMonth);
+  const meirAmount=MEIR_AMOUNTS[nFridays]??null;
 
   const getData=(mem)=>monthData[selMonth]?.[mem.id]||{lates:0,absents:0,confirmed:false};
   const getNet=(mem)=>{
@@ -230,6 +234,30 @@ function MainTab({members,monthData,selMonth,setSelMonth}){
         </div>
       </div>
 
+      {/* Meir card */}
+      {meirAmount!=null&&(
+        <div style={{...card,background:'linear-gradient(135deg,#065f46,#059669)',marginBottom:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{color:'#a7f3d0',fontSize:12,fontWeight:600}}>בקשה ממאיר — {nFridays} ימי שישי</div>
+              <div style={{color:'#fff',fontWeight:800,fontSize:14,marginTop:2}}>סכום לגביה החודש</div>
+            </div>
+            <div style={{color:'#fde68a',fontWeight:800,fontSize:28}}>₪{fmt(meirAmount)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Search */}
+      <div style={{marginBottom:10}}>
+        <input
+          style={{...inp,background:'#fff',paddingRight:36,fontSize:14}}
+          type="text"
+          placeholder="🔍 חפש אברך..."
+          value={search}
+          onChange={e=>setSearch(e.target.value)}
+        />
+      </div>
+
       {/* Members */}
       {members.length===0&&(
         <div style={{...card,textAlign:'center',color:'#3b82f6',padding:32}}>
@@ -237,7 +265,7 @@ function MainTab({members,monthData,selMonth,setSelMonth}){
         </div>
       )}
 
-      {members.map(mem=>{
+      {members.filter(m=>!search||m.name.includes(search)).map(mem=>{
         const d=getData(mem);
         const net=getNet(mem);
         const isFull=net===fullAmount;
