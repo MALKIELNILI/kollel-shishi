@@ -183,7 +183,13 @@ function MainTab({members,monthData,selMonth,setSelMonth}){
   };
 
   const setFull=(mem)=>{
-    fbSet(`months/${selMonth}/${mem.id}`,{lates:0,absents:0,confirmed:true});
+    const d=getData(mem);
+    // לחיצה שנייה על "מלא" כשכבר מסומן — מבטלת את הסימון
+    if(d.confirmed&&!(d.lates||0)&&!(d.absents||0)){
+      fbSet(`months/${selMonth}/${mem.id}`,{lates:0,absents:0,confirmed:false});
+    }else{
+      fbSet(`months/${selMonth}/${mem.id}`,{lates:0,absents:0,confirmed:true});
+    }
   };
 
   const changeLates=(mem,delta)=>{
