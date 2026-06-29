@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>כולל שישי</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon.svg"/>
+<meta name="theme-color" content="#1d4ed8"/>
+<script>
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+</script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#eff6ff;font-family:'Segoe UI',Arial,sans-serif;direction:rtl;color:#1e3a5f}
+input,select,button{font-family:inherit}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<script>
+const firebaseConfig={
+  apiKey:"AIzaSyCtTCUNeYzRMlSLe2VJs_ols818QI1ZuTA",
+  authDomain:"sarikow-3342b.firebaseapp.com",
+  databaseURL:"https://sarikow-3342b-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"sarikow-3342b",
+  storageBucket:"sarikow-3342b.firebasestorage.app",
+  messagingSenderId:"95850039076",
+  appId:"1:95850039076:web:4149b5724c52fbdaa315b1"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+</script>
+<script type="text/babel">
+const{useState,useEffect}=React;
+
+const FB_PATH='kollel-shishi';
+const RATE=100;
+const LATE_DED=50;
+const ABSENT_DED=100;
+
+const fmt=n=>Number(n||0).toLocaleString('he-IL');
+
+const nowKey=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;};
+const prevMonth=k=>{let[y,m]=k.split('-').map(Number);m--;if(m<1){m=12;y--;}return`${y}-${String(m).padStart(2,'0')}`;};
+const nextMonth=k=>{let[y,m]=k.split('-').map(Number);m++;if(m>12){m=1;y++;}return`${y}-${String(m).padStart(2,'0')}`;};
+
+const toHebMonth=yyyymm=>{
+  const[y,m]=yyyymm.split('-').map(Number);
+  try{return new Intl.DateTimeFormat('he-u-ca-hebrew',{month:'long',year:'numeric'}).format(new Date(y,m-1,20));}
+  catch{return yyyymm;}
+};
+
+function countFridays(yyyymm){
+  const[y,m]=yyyymm.split('-').map(Number);
+  let n=0,d=new Date(y,m-1,1);
+  while(d.getMonth()===m-1){if(d.getDay()===5)n++;d.setDate(d.getDate()+1);}
+  return n;
+}
+
+function lastFridayStr(yyyymm){
+  const[y,m]=yyyymm.split('-').map(Number);
+  const d=new Date(y,m,0);
+  while(d.getDay()!==5)d.setDate(d.getDate()-1);
+  return d.toLocaleDateString('he-IL',{day:'numeric',month:'long'});
+}
+
+function fbSet(path,val){db.ref(`${FB_PATH}/${path}`).set(val);}
+function fbListen(path,cb){
+  const ref=db.ref(`${FB_PATH}/${path}`);
+  ref.on('value',s=>cb(s.val()));
+  return()=>ref.off('value');
+}
+
+const card={background:'#fff',borderRadius:14,padding:'14px 16px',boxShadow:'0 2px 10px rgba(29,78,216,0.08)',marginBottom:10};
+const inp={border:'1.5px solid #bfdbfe',borderRadius:9,padding:'9px 12px',fontSize:14,width:'100%',outline:'none'};
+const btn=(bg,col='#fff',border='none')=>({padding:'9px 14px',background:bg,color:col,border,borderRadius:9,fontWeight:700,cursor:'pointer',fontSize:13});
+
+function Modal({title,onClose,children}){
+  return(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 20px',borderBottom:'1px solid #dbeafe'}}>
+          <h2 style={{fontSize:17,color:'#1e3a8a',fontWeight:800}}>{title}</h2>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:22,cursor:'pointer',color:'#1d4ed8'}}>×</button>
+        </div>
+        <div style={{padding:'16px 20px'}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── COUNTER WIDGET ────────────────────────────────────────────
+function Counter({label,emoji,count,onAdd,onRemove,mainColor,bgColor}){
+  return(
+    <div style={{display:'flex',alignItems:'center',gap:0,border:`1.5px solid ${mainColor}`,borderRadius:9,overflow:'hidden'}}>
+      <button onClick={onRemove} disabled={count===0}
+        style={{padding:'8px 11px',background:count>0?bgColor:'#f9fafb',border:'none',cursor:count>0?'pointer':'default',
+          color:count>0?mainColor:'#d1d5db',fontWeight:800,fontSize:16,lineHeight:1}}>−</button>
+      <div style={{padding:'8px 10px',background:count>0?bgColor:'#fff',minWidth:28,textAlign:'center',fontWeight:800,color:count>0?mainColor:'#9ca3af',fontSize:15}}>
+        {count}
+      </div>
+      <button onClick={onAdd}
+        style={{padding:'8px 11px',background:mainColor,border:'none',cursor:'pointer',color:'#fff',fontWeight:800,fontSize:16,lineHeight:1}}>+</button>
+      <div style={{padding:'8px 10px',background:count>0?bgColor:'#fff',fontSize:12,fontWeight:700,color:count>0?mainColor:'#9ca3af',whiteSpace:'nowrap'}}>
+        {emoji} {label}
+      </div>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────
+function App(){
+  const[ready,setReady]=useState(false);
+  const[members,setMembers]=useState([]);
+  const[monthData,setMonthData]=useState({});
+  const[tab,setTab]=useState('main');
+  const[selMonth,setSelMonth]=useState(nowKey());
+
+  useEffect(()=>{
+    let lm=false,lmd=false;
+    const check=()=>{if(lm&&lmd)setReady(true);};
+    const u1=fbListen('members',v=>{setMembers(Array.isArray(v)?v:v?Object.values(v):[]);lm=true;check();});
+    const u2=fbListen('months',v=>{setMonthData(v||{});lmd=true;check();});
+    return()=>{u1();u2();};
+  },[]);
+
+  if(!ready)return(
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100vh',gap:16,background:'#eff6ff'}}>
+      <img src="icon.svg" width={64} height={64} alt=""/>
+      <div style={{fontSize:22,fontWeight:800,color:'#1d4ed8'}}>כולל שישי</div>
+      <div style={{fontSize:13,color:'#3b82f6',opacity:.7}}>מתחבר לענן...</div>
+      <div style={{width:36,height:36,border:'4px solid #bfdbfe',borderTop:'4px solid #1d4ed8',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>
+    </div>
+  );
+
+  const activeMembers=members.filter(m=>m.active!==false);
+  const tabS=t=>({padding:'8px 16px',borderRadius:10,border:'none',cursor:'pointer',fontWeight:700,fontSize:13,
+    background:tab===t?'#fff':'rgba(255,255,255,0.2)',color:tab===t?'#1d4ed8':'#fff'});
+
+  return(
+    <div style={{minHeight:'100vh',background:'#eff6ff'}}>
+      <div style={{background:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',padding:'14px 16px',position:'sticky',top:0,zIndex:50,boxShadow:'0 2px 12px rgba(0,0,0,0.2)'}}>
+        <div style={{maxWidth:600,margin:'0 auto'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+            <img src="icon.svg" width={32} height={32} alt=""/>
+            <div style={{color:'#fde68a',fontWeight:800,fontSize:18}}>כולל שישי</div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            {[['main','📅 חודשי'],['members','👥 אברכים']].map(([k,l])=>(
+              <button key={k} style={tabS(k)} onClick={()=>setTab(k)}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:600,margin:'0 auto',padding:'14px 12px'}}>
+        {tab==='main'&&<MainTab members={activeMembers} monthData={monthData} selMonth={selMonth} setSelMonth={setSelMonth}/>}
+        {tab==='members'&&<MembersTab members={members}/>}
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN TAB ─────────────────────────────────────────────────
+function MainTab({members,monthData,selMonth,setSelMonth}){
+  const nFridays=countFridays(selMonth);
+  const fullAmount=nFridays*RATE;
+  const payDate=lastFridayStr(selMonth);
+
+  const getData=(mem)=>monthData[selMonth]?.[mem.id]||{lates:0,absents:0,confirmed:false};
+  const getNet=(mem)=>{
+    const d=getData(mem);
+    return Math.max(0, fullAmount-(d.lates||0)*LATE_DED-(d.absents||0)*ABSENT_DED);
+  };
+
+  const setFull=(mem)=>{
+    fbSet(`months/${selMonth}/${mem.id}`,{lates:0,absents:0,confirmed:true});
+  };
+
+  const changeLates=(mem,delta)=>{
+    const d=getData(mem);
+    const newVal=Math.max(0,(d.lates||0)+delta);
+    const totalDed=newVal*LATE_DED+(d.absents||0)*ABSENT_DED;
+    if(totalDed>fullAmount)return;
+    fbSet(`months/${selMonth}/${mem.id}`,{...d,lates:newVal,confirmed:true});
+  };
+
+  const changeAbsents=(mem,delta)=>{
+    const d=getData(mem);
+    const newVal=Math.max(0,(d.absents||0)+delta);
+    const totalDed=(d.lates||0)*LATE_DED+newVal*ABSENT_DED;
+    if(totalDed>fullAmount)return;
+    fbSet(`months/${selMonth}/${mem.id}`,{...d,absents:newVal,confirmed:true});
+  };
+
+  const deducted=members.filter(mem=>{const d=getData(mem);return(d.lates||0)>0||(d.absents||0)>0;});
+  const totalDed=deducted.reduce((s,mem)=>s+(fullAmount-getNet(mem)),0);
+
+  return(
+    <div>
+      {/* Month header card */}
+      <div style={{...card,background:'linear-gradient(135deg,#1e3a8a,#2563eb)',padding:'16px 14px',marginBottom:14}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+          <button onClick={()=>setSelMonth(prevMonth(selMonth))}
+            style={{...btn('rgba(255,255,255,0.18)','#fff'),padding:'7px 16px',fontSize:18}}>→</button>
+          <div style={{textAlign:'center'}}>
+            <div style={{color:'#fde68a',fontWeight:800,fontSize:19}}>{toHebMonth(selMonth)}</div>
+          </div>
+          <button onClick={()=>setSelMonth(nextMonth(selMonth))}
+            style={{...btn('rgba(255,255,255,0.18)','#fff'),padding:'7px 16px',fontSize:18}}>←</button>
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+          <div style={{background:'rgba(255,255,255,0.15)',borderRadius:10,padding:'10px 18px',textAlign:'center'}}>
+            <div style={{color:'#bfdbfe',fontSize:11,marginBottom:2}}>ימי שישי</div>
+            <div style={{color:'#fff',fontWeight:800,fontSize:26}}>{nFridays}</div>
+          </div>
+          <div style={{background:'rgba(255,255,255,0.15)',borderRadius:10,padding:'10px 18px',textAlign:'center'}}>
+            <div style={{color:'#bfdbfe',fontSize:11,marginBottom:2}}>תשלום מלא לאברך</div>
+            <div style={{color:'#fde68a',fontWeight:800,fontSize:26}}>₪{fmt(fullAmount)}</div>
+          </div>
+          <div style={{background:'rgba(255,255,255,0.15)',borderRadius:10,padding:'10px 16px',textAlign:'center',fontSize:13}}>
+            <div style={{color:'#bfdbfe',fontSize:11,marginBottom:2}}>מועד תשלום</div>
+            <div style={{color:'#fff',fontWeight:700}}>{payDate}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Members */}
+      {members.length===0&&(
+        <div style={{...card,textAlign:'center',color:'#3b82f6',padding:32}}>
+          אין אברכים — הוסף בלשונית "אברכים"
+        </div>
+      )}
+
+      {members.map(mem=>{
+        const d=getData(mem);
+        const net=getNet(mem);
+        const isFull=net===fullAmount;
+        const confirmed=d.confirmed;
+
+        const borderCol=!confirmed?'#d1d5db':isFull?'#16a34a':'#f59e0b';
+        const netCol=!confirmed?'#9ca3af':isFull?'#16a34a':'#d97706';
+
+        return(
+          <div key={mem.id} style={{...card,borderRight:`5px solid ${borderCol}`}}>
+            {/* Name + amount */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+              <div style={{fontWeight:800,fontSize:17,color:'#1e3a8a'}}>{mem.name}</div>
+              <div>
+                <div style={{fontWeight:800,fontSize:22,color:netCol,textAlign:'left'}}>₪{fmt(net)}</div>
+                {!isFull&&<div style={{fontSize:11,color:'#9ca3af',textAlign:'left'}}>מתוך ₪{fmt(fullAmount)}</div>}
+              </div>
+            </div>
+
+            {/* Deductions detail */}
+            {(!isFull&&confirmed)&&(
+              <div style={{background:'#fffbeb',borderRadius:8,padding:'6px 10px',marginBottom:10,fontSize:12}}>
+                {(d.lates||0)>0&&<span style={{color:'#d97706',marginLeft:10}}>⏰ {d.lates} איחורים — הפחתה: ₪{fmt((d.lates||0)*LATE_DED)}</span>}
+                {(d.absents||0)>0&&<span style={{color:'#dc2626'}}>✕ {d.absents} חיסורים — הפחתה: ₪{fmt((d.absents||0)*ABSENT_DED)}</span>}
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+              <button onClick={()=>setFull(mem)}
+                style={{...btn(confirmed&&isFull?'#16a34a':'#f0fdf4',confirmed&&isFull?'#fff':'#15803d',`1.5px solid ${confirmed&&isFull?'#16a34a':'#86efac'}`),
+                  padding:'9px 14px'}}>
+                ✓ מלא{confirmed&&isFull?` (₪${fmt(fullAmount)})`:''}
+              </button>
+
+              <Counter
+                label="איחור" emoji="⏰"
+                count={d.lates||0}
+                onAdd={()=>changeLates(mem,1)}
+                onRemove={()=>changeLates(mem,-1)}
+                mainColor="#d97706" bgColor="#fffbeb"
+              />
+
+              <Counter
+                label="חיסור" emoji="✕"
+                count={d.absents||0}
+                onAdd={()=>changeAbsents(mem,1)}
+                onRemove={()=>changeAbsents(mem,-1)}
+                mainColor="#dc2626" bgColor="#fff1f2"
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Deductions summary */}
+      {deducted.length>0&&(
+        <div style={{...card,background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',marginTop:4}}>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:12,color:'#fde68a'}}>📋 סיכום הפחתות</div>
+          {deducted.map(mem=>{
+            const d=getData(mem);
+            const net=getNet(mem);
+            const ded=fullAmount-net;
+            return(
+              <div key={mem.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                background:'rgba(255,255,255,0.12)',borderRadius:10,padding:'10px 14px',marginBottom:8}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:15}}>{mem.name}</div>
+                  <div style={{fontSize:12,opacity:.8,marginTop:3}}>
+                    {(d.lates||0)>0&&<span style={{marginLeft:10}}>⏰ {d.lates} איחורים</span>}
+                    {(d.absents||0)>0&&<span>✕ {d.absents} חיסורים</span>}
+                  </div>
+                </div>
+                <div style={{textAlign:'left'}}>
+                  <div style={{fontWeight:800,fontSize:20,color:'#fde68a'}}>₪{fmt(net)}</div>
+                  <div style={{fontSize:11,opacity:.7}}>חסר: ₪{fmt(ded)}</div>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{borderTop:'1px solid rgba(255,255,255,0.25)',marginTop:4,paddingTop:10,
+            display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontWeight:700,fontSize:14}}>סה"כ הפחתות</span>
+            <span style={{fontWeight:800,fontSize:22,color:'#fca5a5'}}>−₪{fmt(totalDed)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MEMBERS TAB ───────────────────────────────────────────────
+function MembersTab({members}){
+  const[form,setForm]=useState({name:'',active:true});
+  const[editing,setEditing]=useState(null);
+  const[showForm,setShowForm]=useState(false);
+
+  const save=()=>{
+    if(!form.name.trim())return alert('יש להזין שם');
+    const list=[...members];
+    if(editing!=null){
+      list[editing]={...list[editing],...form};
+    }else{
+      const maxId=members.reduce((m,x)=>Math.max(m,x.id||0),0);
+      list.push({...form,id:maxId+1});
+    }
+    fbSet('members',list);
+    setForm({name:'',active:true});setEditing(null);setShowForm(false);
+  };
+
+  const toggleActive=(i)=>{
+    const list=[...members];
+    list[i]={...list[i],active:!list[i].active};
+    fbSet('members',list);
+  };
+
+  const openEdit=(i)=>{setForm(members[i]);setEditing(i);setShowForm(true);};
+
+  return(
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a'}}>
+          אברכי הכולל ({members.filter(m=>m.active!==false).length} פעילים)
+        </div>
+        <button style={btn('#1d4ed8')} onClick={()=>{setForm({name:'',active:true});setEditing(null);setShowForm(true);}}>
+          + הוסף אברך
+        </button>
+      </div>
+
+      {members.map((m,i)=>(
+        <div key={m.id||i} style={{...card,opacity:m.active===false?.55:1,borderRight:`4px solid ${m.active===false?'#d1d5db':'#1d4ed8'}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{fontWeight:700,fontSize:15,color:'#1e3a8a'}}>
+              {m.name}
+              {m.active===false&&<span style={{fontSize:12,color:'#9ca3af',fontWeight:400,marginRight:6}}>(לא פעיל)</span>}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <button style={btn('#dbeafe','#1d4ed8')} onClick={()=>openEdit(i)}>✏️</button>
+              <button style={btn(m.active===false?'#dcfce7':'#fee2e2',m.active===false?'#16a34a':'#dc2626')}
+                onClick={()=>toggleActive(i)}>
+                {m.active===false?'הפעל':'הפסק'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {showForm&&(
+        <Modal title={editing!=null?'עריכת אברך':'הוסף אברך'} onClose={()=>setShowForm(false)}>
+          <label style={{fontSize:13,color:'#6b7280',display:'block',marginBottom:5}}>שם מלא *</label>
+          <input style={{...inp,marginBottom:14}} type="text" value={form.name||''}
+            onChange={e=>setForm(x=>({...x,name:e.target.value}))}
+            onKeyDown={e=>e.key==='Enter'&&save()} autoFocus/>
+          <div style={{display:'flex',gap:10}}>
+            <button style={{...btn('#1d4ed8'),flex:1}} onClick={save}>שמור</button>
+            <button style={{...btn('#f3f4f6','#374151'),flex:1}} onClick={()=>setShowForm(false)}>ביטול</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</head>
+<body>
+<div id="root"></div>
+</body>
+</html>
