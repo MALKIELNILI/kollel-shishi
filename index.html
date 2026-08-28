@@ -114,6 +114,9 @@ function Counter({label,emoji,count,onAdd,onRemove,mainColor,bgColor}){
 }
 
 // ── APP ───────────────────────────────────────────────────────
+const UNLOCK_PIN='2380';
+const UNLOCK_KEY='ks_unlocked';
+
 function App(){
   const[ready,setReady]=useState(false);
   const[members,setMembers]=useState([]);
@@ -121,6 +124,30 @@ function App(){
   const[meirTotal,setMeirTotal]=useState(null);
   const[tab,setTab]=useState('main');
   const[selMonth,setSelMonth]=useState(nowKey());
+  const[unlocked,setUnlocked]=useState(()=>{try{return localStorage.getItem(UNLOCK_KEY)==='1';}catch{return false;}});
+  const[showPinModal,setShowPinModal]=useState(false);
+  const[pinInput,setPinInput]=useState('');
+  const[tapCount,setTapCount]=useState(0);
+
+  const handleTitleTap=()=>{
+    if(unlocked)return; // כבר פתוח, אין צורך
+    setTapCount(c=>{
+      const n=c+1;
+      if(n>=5){setShowPinModal(true);return 0;}
+      setTimeout(()=>setTapCount(c2=>c2>0?0:0),1500);
+      return n;
+    });
+  };
+
+  const tryUnlock=()=>{
+    if(pinInput===UNLOCK_PIN){
+      try{localStorage.setItem(UNLOCK_KEY,'1');}catch{}
+      setUnlocked(true);setShowPinModal(false);setPinInput('');
+    }else{
+      alert('קוד שגוי');
+      setPinInput('');
+    }
+  };
 
   useEffect(()=>{
     let lm=false,lmd=false;
@@ -150,7 +177,7 @@ function App(){
         <div style={{maxWidth:600,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
             <img src="icon.svg" width={32} height={32} alt=""/>
-            <div style={{color:'#fde68a',fontWeight:800,fontSize:18}}>כולל שישי</div>
+            <div style={{color:'#fde68a',fontWeight:800,fontSize:18,userSelect:'none'}} onClick={handleTitleTap}>כולל שישי</div>
           </div>
           <div style={{display:'flex',gap:8}}>
             {[['main','📅 חודשי'],['members','👥 אברכים']].map(([k,l])=>(
@@ -160,8 +187,18 @@ function App(){
         </div>
       </div>
 
+      {showPinModal&&(
+        <Modal title="קוד גישה" onClose={()=>{setShowPinModal(false);setPinInput('');}}>
+          <input style={{...inp,marginBottom:14,textAlign:'center',fontSize:22,letterSpacing:4}}
+            type="tel" inputMode="numeric" maxLength={4} value={pinInput}
+            onChange={e=>setPinInput(e.target.value.replace(/\D/g,''))}
+            onKeyDown={e=>e.key==='Enter'&&tryUnlock()} autoFocus/>
+          <button style={{...btn('#1d4ed8'),width:'100%'}} onClick={tryUnlock}>אישור</button>
+        </Modal>
+      )}
+
       <div style={{maxWidth:600,margin:'0 auto',padding:'14px 12px'}}>
-        {tab==='main'&&<MainTab members={activeMembers} monthData={monthData} selMonth={selMonth} setSelMonth={setSelMonth} meirTotal={meirTotal}/>}
+        {tab==='main'&&<MainTab members={activeMembers} monthData={monthData} selMonth={selMonth} setSelMonth={setSelMonth} meirTotal={meirTotal} unlocked={unlocked}/>}
         {tab==='members'&&<MembersTab members={members} meirTotal={meirTotal}/>}
       </div>
     </div>
@@ -169,7 +206,7 @@ function App(){
 }
 
 // ── MAIN TAB ─────────────────────────────────────────────────
-function MainTab({members,monthData,selMonth,setSelMonth,meirTotal}){
+function MainTab({members,monthData,selMonth,setSelMonth,meirTotal,unlocked}){
   const[search,setSearch]=useState('');
   const nFridays=countFridays(selMonth);
   const fullAmount=nFridays*RATE;
@@ -240,8 +277,8 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirTotal}){
         </div>
       </div>
 
-      {/* Total to collect card */}
-      {members.length>0&&(
+      {/* Total to collect card — מוסתר, נחשף רק אחרי קוד גישה סמוי */}
+      {unlocked&&members.length>0&&(
         <div style={{...card,background:'linear-gradient(135deg,#7c2d12,#c2410c)',marginBottom:10,textAlign:'center'}}>
           <div style={{color:'#fed7aa',fontSize:12,fontWeight:700,marginBottom:4}}>💰 סה"כ לתשלום החודש ({members.length} אברכים)</div>
           <div style={{color:'#fff',fontWeight:800,fontSize:30}}>₪{fmt(totalToPay)}</div>
