@@ -35,7 +35,7 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 </script>
 <script type="text/babel">
-const{useState,useEffect}=React;
+const{useState,useEffect,useRef}=React;
 
 const FB_PATH='kollel-shishi';
 const RATE=100;
@@ -129,14 +129,21 @@ function App(){
   const[pinInput,setPinInput]=useState('');
   const[tapCount,setTapCount]=useState(0);
 
+  const lastTapRef=useRef(0);
+  const tapStageRef=useRef(0);
   const handleTitleTap=()=>{
     if(unlocked)return; // כבר פתוח, אין צורך
-    setTapCount(c=>{
-      const n=c+1;
-      if(n>=2){setShowPinModal(true);return 0;}
-      setTimeout(()=>setTapCount(c2=>c2>0?0:0),1200);
-      return n;
-    });
+    const now=Date.now();
+    const gap=now-lastTapRef.current;
+    if(gap<120)return; // אירוע כפול מאותה נגיעה פיזית — מתעלמים
+    lastTapRef.current=now;
+    if(gap<1200&&tapStageRef.current===1){
+      tapStageRef.current=0;
+      setShowPinModal(true);
+    }else{
+      tapStageRef.current=1;
+      setTimeout(()=>{tapStageRef.current=0;},1200);
+    }
   };
 
   const tryUnlock=()=>{
