@@ -131,12 +131,7 @@ function App(){
 
   const handleTitleTap=()=>{
     if(unlocked)return; // כבר פתוח, אין צורך
-    setTapCount(c=>{
-      const n=c+1;
-      if(n>=5){setShowPinModal(true);return 0;}
-      setTimeout(()=>setTapCount(c2=>c2>0?0:0),1500);
-      return n;
-    });
+    setShowPinModal(true);
   };
 
   const tryUnlock=()=>{
