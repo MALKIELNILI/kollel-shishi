@@ -166,15 +166,12 @@ function App(){
   );
 }
 
-const MEIR_AMOUNTS={4:20800,5:25200};
-
 // ── MAIN TAB ─────────────────────────────────────────────────
 function MainTab({members,monthData,selMonth,setSelMonth}){
   const[search,setSearch]=useState('');
   const nFridays=countFridays(selMonth);
   const fullAmount=nFridays*RATE;
   const payDate=lastFridayStr(selMonth);
-  const meirAmount=MEIR_AMOUNTS[nFridays]??null;
 
   const getData=(mem)=>monthData[selMonth]?.[mem.id]||{lates:0,absents:0,confirmed:false};
   const getNet=(mem)=>{
@@ -250,14 +247,14 @@ function MainTab({members,monthData,selMonth,setSelMonth}){
       )}
 
       {/* Meir card */}
-      {meirAmount!=null&&(
+      {members.length>0&&(
         <div style={{...card,background:'linear-gradient(135deg,#065f46,#059669)',marginBottom:10}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div>
-              <div style={{color:'#a7f3d0',fontSize:12,fontWeight:600}}>בקשה ממאיר — {nFridays} ימי שישי</div>
+              <div style={{color:'#a7f3d0',fontSize:12,fontWeight:600}}>בקשה ממאיר — {nFridays} ימי שישי, {members.length} אברכים</div>
               <div style={{color:'#fff',fontWeight:800,fontSize:14,marginTop:2}}>סכום לגביה החודש</div>
             </div>
-            <div style={{color:'#fde68a',fontWeight:800,fontSize:28}}>₪{fmt(meirAmount)}</div>
+            <div style={{color:'#fde68a',fontWeight:800,fontSize:28}}>₪{fmt(totalToPay)}</div>
           </div>
         </div>
       )}
@@ -377,6 +374,7 @@ function MembersTab({members}){
   const[form,setForm]=useState({name:'',active:true});
   const[editing,setEditing]=useState(null);
   const[showForm,setShowForm]=useState(false);
+  const[search,setSearch]=useState('');
 
   const save=()=>{
     if(!form.name.trim())return alert('יש להזין שם');
@@ -413,7 +411,17 @@ function MembersTab({members}){
         </button>
       </div>
 
-      {members.map((m,i)=>(
+      <div style={{marginBottom:10}}>
+        <input
+          style={{...inp,background:'#fff',fontSize:14}}
+          type="text"
+          placeholder="🔍 חפש אברך..."
+          value={search}
+          onChange={e=>setSearch(e.target.value)}
+        />
+      </div>
+
+      {members.map((m,i)=>({m,i})).filter(({m})=>!search||m.name.includes(search)).map(({m,i})=>(
         <div key={m.id||i} style={{...card,opacity:m.active===false?.55:1,borderRight:`4px solid ${m.active===false?'#d1d5db':'#1d4ed8'}`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{fontWeight:700,fontSize:15,color:'#1e3a8a'}}>
