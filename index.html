@@ -210,6 +210,7 @@ function MainTab({members,monthData,selMonth,setSelMonth}){
 
   const deducted=members.filter(mem=>{const d=getData(mem);return(d.lates||0)>0||(d.absents||0)>0;});
   const totalDed=deducted.reduce((s,mem)=>s+(fullAmount-getNet(mem)),0);
+  const totalToPay=members.reduce((s,mem)=>s+getNet(mem),0);
 
   return(
     <div>
@@ -239,6 +240,14 @@ function MainTab({members,monthData,selMonth,setSelMonth}){
           </div>
         </div>
       </div>
+
+      {/* Total to collect card */}
+      {members.length>0&&(
+        <div style={{...card,background:'linear-gradient(135deg,#7c2d12,#c2410c)',marginBottom:10,textAlign:'center'}}>
+          <div style={{color:'#fed7aa',fontSize:12,fontWeight:700,marginBottom:4}}>💰 סה"כ לתשלום החודש ({members.length} אברכים)</div>
+          <div style={{color:'#fff',fontWeight:800,fontSize:30}}>₪{fmt(totalToPay)}</div>
+        </div>
+      )}
 
       {/* Meir card */}
       {meirAmount!=null&&(
