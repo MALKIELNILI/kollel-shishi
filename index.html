@@ -376,7 +376,10 @@ function MembersTab({members}){
       list[editing]={...list[editing],...form};
     }else{
       const maxId=members.reduce((m,x)=>Math.max(m,x.id||0),0);
-      list.push({...form,id:maxId+1});
+      const newId=maxId+1;
+      list.push({...form,id:newId});
+      // אברך חדש מקבל אוטומטית סימון "מלא" לחודש הנוכחי (400/500 לפי מס' ימי שישי)
+      fbSet(`months/${nowKey()}/${newId}`,{lates:0,absents:0,confirmed:true});
     }
     fbSet('members',list);
     setForm({name:'',active:true});setEditing(null);setShowForm(false);
