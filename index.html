@@ -210,7 +210,7 @@ function MainTab({members,monthData,selMonth,setSelMonth}){
 
   const deducted=members.filter(mem=>{const d=getData(mem);return(d.lates||0)>0||(d.absents||0)>0;});
   const totalDed=deducted.reduce((s,mem)=>s+(fullAmount-getNet(mem)),0);
-  const totalToPay=members.reduce((s,mem)=>s+getNet(mem),0);
+  const totalToPay=members.length*fullAmount;
 
   return(
     <div>
