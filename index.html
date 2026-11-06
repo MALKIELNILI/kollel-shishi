@@ -226,17 +226,37 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
   const getData=(mem)=>monthData[selMonth]?.[mem.id]||{lates:0,absents:0,confirmed:false};
 
   // שעות הגעה של היום: לוחצים "הגיע" והשעה הנוכחית נשמרת אוטומטית
-  const[arrivals,setArrivals]=useState({});
+  const[allArrivals,setAllArrivals]=useState({});
+  const[showReport,setShowReport]=useState(false);
   useEffect(()=>{
-    const ref=db.ref(`${FB_PATH}/arrivals/${todayKey()}`);
-    const cb=s=>setArrivals(s.val()||{});
+    const ref=db.ref(`${FB_PATH}/arrivals`);
+    const cb=s=>setAllArrivals(s.val()||{});
     ref.on('value',cb);
     return()=>ref.off('value',cb);
   },[]);
+  const arrivals=allArrivals[todayKey()]||{};
   const markArrival=(mem)=>{
     const n=new Date();
     const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
     db.ref(`${FB_PATH}/arrivals/${todayKey()}/${mem.id}`).set(t);
+  };
+  // דוח הגעות לחודש: לכל אברך, שעת ההגעה בכל יום שישי, וכמה פעמים בחלון 9:02–9:05 וכמה אחרי 9:05
+  const fridays=(()=>{
+    const[y,m]=selMonth.split('-').map(Number);
+    const out=[];let d=new Date(y,m-1,1);
+    while(d.getMonth()===m-1){if(d.getDay()===5)out.push(`${y}-${String(m).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);d.setDate(d.getDate()+1);}
+    return out;
+  })();
+  const toMin=t=>{if(!t)return null;const[h,mi]=t.split(':').map(Number);return h*60+mi;};
+  const reportRow=(mem)=>{
+    let inWindow=0,late=0;
+    const times=fridays.map(f=>{
+      const t=allArrivals[f]?.[mem.id]||null;
+      const v=toMin(t);
+      if(v!==null){if(v>=9*60+2&&v<=9*60+5)inWindow++;if(v>9*60+5)late++;}
+      return t;
+    });
+    return{times,inWindow,late};
   };
   const getNet=(mem)=>{
     const d=getData(mem);
@@ -333,6 +353,43 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
           onChange={e=>setSearch(e.target.value)}
         />
       </div>
+
+      {/* Arrivals report for the month */}
+      <div style={{marginBottom:10}}>
+        <button onClick={()=>setShowReport(!showReport)} style={{padding:'9px 14px',background:'#0369a1',color:'#fff',border:'none',borderRadius:9,fontWeight:700,cursor:'pointer',fontSize:13}}>
+          {showReport?'✕ סגור דוח הגעות':'📋 דוח הגעות לחודש'}
+        </button>
+      </div>
+      {showReport&&(
+        <div style={{...card,overflowX:'auto'}}>
+          <div style={{fontWeight:800,color:'#1e3a8a',marginBottom:8}}>שעות הגעה — {toHebMonth(selMonth)}</div>
+          {fridays.length===0?<div style={{color:'#9ca3af'}}>אין ימי שישי בחודש</div>:(
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+              <thead>
+                <tr style={{borderBottom:'2px solid #e5e7eb'}}>
+                  <th style={{padding:6,textAlign:'right'}}>אברך</th>
+                  {fridays.map(f=><th key={f} style={{padding:6}}>{f.slice(8)}/{f.slice(5,7)}</th>)}
+                  <th style={{padding:6,color:'#0369a1'}}>9:02–9:05</th>
+                  <th style={{padding:6,color:'#dc2626'}}>אחרי 9:05</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map(mem=>{
+                  const r=reportRow(mem);
+                  return(
+                    <tr key={mem.id} style={{borderBottom:'1px solid #f3f4f6'}}>
+                      <td style={{padding:6,fontWeight:700,whiteSpace:'nowrap'}}>{mem.name}</td>
+                      {r.times.map((t,i)=><td key={i} style={{padding:6,textAlign:'center'}}>{t||'—'}</td>)}
+                      <td style={{padding:6,textAlign:'center',fontWeight:800,color:'#0369a1'}}>{r.inWindow}</td>
+                      <td style={{padding:6,textAlign:'center',fontWeight:800,color:'#dc2626'}}>{r.late}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {/* Members */}
       {members.length===0&&(
