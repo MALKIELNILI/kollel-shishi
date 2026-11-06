@@ -250,14 +250,14 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
   })();
   const toMin=t=>{if(!t)return null;const[h,mi]=t.split(':').map(Number);return h*60+mi;};
   const reportRow=(mem)=>{
-    let inWindow=0,late=0;
+    let inWindow=0,late=0,total=0;
     const times=fridays.map(f=>{
       const t=allArrivals[f]?.[mem.id]||null;
       const v=toMin(t);
-      if(v!==null){if(v>=9*60+1&&v<=9*60+5)inWindow++;if(v>9*60+5)late++;}
+      if(v!==null&&v>=9*60+1){total++;if(v<=9*60+5)inWindow++;else late++;}
       return t;
     });
-    return{times,inWindow,late};
+    return{times,inWindow,late,total};
   };
   const getNet=(mem)=>{
     const d=getData(mem);
@@ -370,8 +370,9 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
                 <tr style={{borderBottom:'2px solid #e5e7eb'}}>
                   <th style={{padding:6,textAlign:'right'}}>אברך</th>
                   {fridays.map(f=><th key={f} style={{padding:6}}>{f.slice(8)}/{f.slice(5,7)}</th>)}
-                  <th style={{padding:6,color:'#d97706'}}>איחור 9:01–9:05</th>
+                  <th style={{padding:6,color:'#d97706'}}>9:01–9:05</th>
                   <th style={{padding:6,color:'#dc2626'}}>אחרי 9:05</th>
+                  <th style={{padding:6,color:'#7c2d12'}}>סה"כ איחורים</th>
                 </tr>
               </thead>
               <tbody>
@@ -383,6 +384,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
                       {r.times.map((t,i)=><td key={i} style={{padding:6,textAlign:'center'}}>{t||'—'}</td>)}
                       <td style={{padding:6,textAlign:'center',fontWeight:800,color:'#0369a1'}}>{r.inWindow}</td>
                       <td style={{padding:6,textAlign:'center',fontWeight:800,color:'#dc2626'}}>{r.late}</td>
+                      <td style={{padding:6,textAlign:'center',fontWeight:800,color:'#7c2d12'}}>{r.total}</td>
                     </tr>
                   );
                 })}
