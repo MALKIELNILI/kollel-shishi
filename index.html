@@ -238,15 +238,14 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
   const arrivals=allArrivals[todayKey()]||{};
   const markArrival=(mem)=>{
     const n=new Date();
+    const mins=n.getHours()*60+n.getMinutes();
     const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
     db.ref(`${FB_PATH}/arrivals/${todayKey()}/${mem.id}`).set(t);
-    // מ-9:05 ומעלה זה איחור: מנכים אוטומטית איחור אחד לחודש הנוכחי
-    if(n.getHours()*60+n.getMinutes()>=9*60+5){
-      db.ref(`${FB_PATH}/months/${nowKey()}/${mem.id}`).transaction(d=>{
-        const x=d||{lates:0,absents:0,confirmed:false};
-        return{...x,lates:(x.lates||0)+1,confirmed:true};
-      });
-    }
+    // לחיצה אחת: גם מסמנת שהאברך נוכח, וגם מ-9:05 ומעלה מנכה איחור אחד לחודש
+    db.ref(`${FB_PATH}/months/${nowKey()}/${mem.id}`).transaction(d=>{
+      const x=d||{lates:0,absents:0,confirmed:false};
+      return{...x,lates:(x.lates||0)+(mins>=9*60+5?1:0),confirmed:true};
+    });
   };
   // דוח הגעות לחודש: לכל אברך, שעת ההגעה בכל יום שישי, וכמה פעמים הגיע בין 9:01 ל-9:05 (נחשב איחור) וכמה אחרי 9:05
   const fridays=(()=>{
