@@ -261,7 +261,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
     const times=fridays.map(f=>{
       const t=allArrivals[f]?.[mem.id]||null;
       const v=toMin(t);
-      if(v!==null&&v>=9*60&&v<=9*60+5)near++;
+      if(v!==null&&v>=9*60+1&&v<=9*60+5)near++;
       if(v!==null&&v>=9*60+1){if(v<9*60+5)inWindow++;else late++;}
       return t;
     });
@@ -436,7 +436,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
               <div>
                 <div style={{fontWeight:800,fontSize:17,color:'#1e3a8a'}}>{mem.name}</div>
                 {arrivals[mem.id]&&<div style={{fontSize:12,color:'#0369a1',fontWeight:700}}>🕘 הגיע ב-{arrivals[mem.id]}</div>}
-                {flagged&&<div style={{fontSize:12,color:'#a16207',fontWeight:800}}>⚠️ הגיע 3 פעמים ומעלה ב-9:00–9:05 החודש</div>}
+                {flagged&&<div style={{fontSize:12,color:'#a16207',fontWeight:800}}>⚠️ הגיע 3 פעמים ומעלה ב-9:01–9:05 החודש</div>}
               </div>
               <div>
                 <div style={{fontWeight:800,fontSize:22,color:netCol,textAlign:'left'}}>₪{fmt(net)}</div>
