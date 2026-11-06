@@ -48,6 +48,7 @@ const ABSENT_DED=100;
 const fmt=n=>Number(n||0).toLocaleString('he-IL');
 
 const nowKey=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;};
+const todayKey=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;};
 const prevMonth=k=>{let[y,m]=k.split('-').map(Number);m--;if(m<1){m=12;y--;}return`${y}-${String(m).padStart(2,'0')}`;};
 const nextMonth=k=>{let[y,m]=k.split('-').map(Number);m++;if(m>12){m=1;y++;}return`${y}-${String(m).padStart(2,'0')}`;};
 
@@ -223,6 +224,20 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
   const payDate=lastFridayStr(selMonth);
 
   const getData=(mem)=>monthData[selMonth]?.[mem.id]||{lates:0,absents:0,confirmed:false};
+
+  // שעות הגעה של היום: לוחצים "הגיע" והשעה הנוכחית נשמרת אוטומטית
+  const[arrivals,setArrivals]=useState({});
+  useEffect(()=>{
+    const ref=db.ref(`${FB_PATH}/arrivals/${todayKey()}`);
+    const cb=s=>setArrivals(s.val()||{});
+    ref.on('value',cb);
+    return()=>ref.off('value',cb);
+  },[]);
+  const markArrival=(mem)=>{
+    const n=new Date();
+    const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+    db.ref(`${FB_PATH}/arrivals/${todayKey()}/${mem.id}`).set(t);
+  };
   const getNet=(mem)=>{
     const d=getData(mem);
     return Math.max(0, fullAmount-(d.lates||0)*LATE_DED-(d.absents||0)*ABSENT_DED);
@@ -339,7 +354,10 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
           <div key={mem.id} style={{...card,borderRight:`5px solid ${borderCol}`}}>
             {/* Name + amount */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-              <div style={{fontWeight:800,fontSize:17,color:'#1e3a8a'}}>{mem.name}</div>
+              <div>
+                <div style={{fontWeight:800,fontSize:17,color:'#1e3a8a'}}>{mem.name}</div>
+                {arrivals[mem.id]&&<div style={{fontSize:12,color:'#0369a1',fontWeight:700}}>🕘 הגיע ב-{arrivals[mem.id]}</div>}
+              </div>
               <div>
                 <div style={{fontWeight:800,fontSize:22,color:netCol,textAlign:'left'}}>₪{fmt(net)}</div>
                 {!isFull&&<div style={{fontSize:11,color:'#9ca3af',textAlign:'left'}}>מתוך ₪{fmt(fullAmount)}</div>}
@@ -356,6 +374,9 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
 
             {/* Buttons */}
             <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+              {!arrivals[mem.id]&&(
+                <button onClick={()=>markArrival(mem)} style={{padding:'9px 14px',background:'#0369a1',color:'#fff',border:'none',borderRadius:9,fontWeight:700,cursor:'pointer',fontSize:13}}>🕘 הגיע</button>
+              )}
               <button onClick={()=>setFull(mem)}
                 style={{...btn(confirmed&&isFull?'#16a34a':'#f0fdf4',confirmed&&isFull?'#fff':'#15803d',`1.5px solid ${confirmed&&isFull?'#16a34a':'#86efac'}`),
                   padding:'9px 14px'}}>
