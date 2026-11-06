@@ -241,7 +241,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
     const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
     db.ref(`${FB_PATH}/arrivals/${todayKey()}/${mem.id}`).set(t);
     // מ-9:05 ומעלה זה איחור: מנכים אוטומטית איחור אחד לחודש הנוכחי
-    if(n.getHours()*60+n.getMinutes()>9*60+5){
+    if(n.getHours()*60+n.getMinutes()>=9*60+5){
       db.ref(`${FB_PATH}/months/${nowKey()}/${mem.id}`).transaction(d=>{
         const x=d||{lates:0,absents:0,confirmed:false};
         return{...x,lates:(x.lates||0)+1,confirmed:true};
@@ -261,7 +261,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
     const times=fridays.map(f=>{
       const t=allArrivals[f]?.[mem.id]||null;
       const v=toMin(t);
-      if(v!==null&&v>=9*60+1){if(v<=9*60+5)inWindow++;else late++;}
+      if(v!==null&&v>=9*60+1){if(v<9*60+5)inWindow++;else late++;}
       return t;
     });
     return{times,inWindow,late};
