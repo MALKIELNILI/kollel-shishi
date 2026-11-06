@@ -229,6 +229,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
   // שעות הגעה של היום: לוחצים "הגיע" והשעה הנוכחית נשמרת אוטומטית
   const[allArrivals,setAllArrivals]=useState({});
   const[showReport,setShowReport]=useState(false);
+  const[showSummary,setShowSummary]=useState(false);
   useEffect(()=>{
     const ref=db.ref(`${FB_PATH}/arrivals`);
     const cb=s=>setAllArrivals(s.val()||{});
@@ -373,6 +374,56 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
           </div>
         )}
       </div>
+
+      {/* End-of-month summary */}
+      <div style={{marginBottom:10}}>
+        <button onClick={()=>setShowSummary(!showSummary)} style={{padding:'9px 14px',background:'#7c2d12',color:'#fff',border:'none',borderRadius:9,fontWeight:700,cursor:'pointer',fontSize:13}}>
+          {showSummary?'✕ סגור סיכום':'🧾 סיכום סוף חודש'}
+        </button>
+      </div>
+      {showSummary&&(()=>{
+        const deducted=members.map(mem=>{
+          const d=getData(mem);
+          return(d.lates||0)||(d.absents||0)?{mem,d,net:getNet(mem)}:null;
+        }).filter(Boolean);
+        const pending=members.map(mem=>{
+          const times=fridays.map(f=>allArrivals[f]?.[mem.id]||null).filter(Boolean);
+          const early=times.filter(t=>{const v=toMin(t);return v>=9*60+1&&v<=9*60+4;});
+          return early.length?{mem,early}:null;
+        }).filter(Boolean);
+        return(
+          <div style={card}>
+            <div style={{fontWeight:800,color:'#1e3a8a',marginBottom:8}}>סיכום — {toHebMonth(selMonth)}</div>
+            <div style={{fontWeight:800,color:'#15803d',marginBottom:4}}>א. נוקו בפועל — סכום לתשלום</div>
+            {deducted.length===0?<div style={{color:'#9ca3af',marginBottom:10}}>אין</div>:(
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,marginBottom:12}}>
+                <tbody>
+                  {deducted.map(({mem,d,net})=>(
+                    <tr key={mem.id} style={{borderBottom:'1px solid #f3f4f6'}}>
+                      <td style={{padding:6,fontWeight:700}}>{mem.name}</td>
+                      <td style={{padding:6,color:'#6b7280'}}>{(d.lates||0)>0&&`איחור ×${d.lates} `}{(d.absents||0)>0&&`חיסור ×${d.absents}`}</td>
+                      <td style={{padding:6,textAlign:'left',fontWeight:800,color:'#15803d'}}>₪{fmt(net)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div style={{fontWeight:800,color:'#b45309',marginBottom:4}}>ב. הגיעו בין 9:01 ל-9:04 — להחליט אם להוריד</div>
+            {pending.length===0?<div style={{color:'#9ca3af'}}>אין</div>:(
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <tbody>
+                  {pending.map(({mem,early})=>(
+                    <tr key={mem.id} style={{borderBottom:'1px solid #f3f4f6'}}>
+                      <td style={{padding:6,fontWeight:700}}>{mem.name}</td>
+                      <td style={{padding:6,color:'#6b7280'}}>{early.join(', ')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Arrivals report for the month */}
       <div style={{marginBottom:10}}>
