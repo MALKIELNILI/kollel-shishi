@@ -45,6 +45,7 @@ const MEIR_PER_ADDED={4:400,5:500};
 const LATE_DED=50;
 const ABSENT_DED=100;
 
+const matchesSearch=(name,q)=>{const t=q.trim();if(!t)return true;return name.split(' ').some(w=>w.startsWith(t))||name.startsWith(t);};
 const fmt=n=>Number(n||0).toLocaleString('he-IL');
 
 const nowKey=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;};
@@ -240,7 +241,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
     const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
     db.ref(`${FB_PATH}/arrivals/${todayKey()}/${mem.id}`).set(t);
   };
-  // דוח הגעות לחודש: לכל אברך, שעת ההגעה בכל יום שישי, וכמה פעמים הגיע בין 9:00 ל-9:05 (נחשב איחור) וכמה אחרי 9:05
+  // דוח הגעות לחודש: לכל אברך, שעת ההגעה בכל יום שישי, וכמה פעמים הגיע בין 9:01 ל-9:05 (נחשב איחור) וכמה אחרי 9:05
   const fridays=(()=>{
     const[y,m]=selMonth.split('-').map(Number);
     const out=[];let d=new Date(y,m-1,1);
@@ -253,7 +254,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
     const times=fridays.map(f=>{
       const t=allArrivals[f]?.[mem.id]||null;
       const v=toMin(t);
-      if(v!==null){if(v>=9*60&&v<=9*60+5)inWindow++;if(v>9*60+5)late++;}
+      if(v!==null){if(v>=9*60+1&&v<=9*60+5)inWindow++;if(v>9*60+5)late++;}
       return t;
     });
     return{times,inWindow,late};
@@ -369,7 +370,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
                 <tr style={{borderBottom:'2px solid #e5e7eb'}}>
                   <th style={{padding:6,textAlign:'right'}}>אברך</th>
                   {fridays.map(f=><th key={f} style={{padding:6}}>{f.slice(8)}/{f.slice(5,7)}</th>)}
-                  <th style={{padding:6,color:'#d97706'}}>איחור 9:00–9:05</th>
+                  <th style={{padding:6,color:'#d97706'}}>איחור 9:01–9:05</th>
                   <th style={{padding:6,color:'#dc2626'}}>אחרי 9:05</th>
                 </tr>
               </thead>
@@ -398,7 +399,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
         </div>
       )}
 
-      {members.filter(m=>!search||m.name.includes(search)).map(mem=>{
+      {members.filter(m=>!search||matchesSearch(m.name,search)).map(mem=>{
         const d=getData(mem);
         const net=getNet(mem);
         const isFull=net===fullAmount;
@@ -550,7 +551,7 @@ function MembersTab({members}){
         />
       </div>
 
-      {members.map((m,i)=>({m,i})).filter(({m})=>!search||m.name.includes(search)).map(({m,i})=>(
+      {members.map((m,i)=>({m,i})).filter(({m})=>!search||matchesSearch(m.name,search)).map(({m,i})=>(
         <div key={m.id||i} style={{...card,opacity:m.active===false?.55:1,borderRight:`4px solid ${m.active===false?'#d1d5db':'#1d4ed8'}`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{fontWeight:700,fontSize:15,color:'#1e3a8a'}}>
