@@ -39,6 +39,9 @@ const{useState,useEffect,useRef}=React;
 
 const FB_PATH='kollel-shishi';
 const RATE=100;
+// בקשה ממאיר: סכום בסיס לפי מספר ימי השישי בחודש, ותוספת לכל אברך שנוסף מהיום (המונה לא יורד)
+const MEIR_BASE={4:22800,5:27700};
+const MEIR_PER_ADDED={4:400,5:500};
 const LATE_DED=50;
 const ABSENT_DED=100;
 
@@ -121,7 +124,7 @@ function App(){
   const[ready,setReady]=useState(false);
   const[members,setMembers]=useState([]);
   const[monthData,setMonthData]=useState({});
-  const[meirTotal,setMeirTotal]=useState(null);
+  const[meirAdded,setMeirAdded]=useState(0);
   const[tab,setTab]=useState('main');
   const[selMonth,setSelMonth]=useState(nowKey());
   const[unlocked,setUnlocked]=useState(()=>{try{return localStorage.getItem(UNLOCK_KEY)==='1';}catch{return false;}});
@@ -161,7 +164,7 @@ function App(){
     const check=()=>{if(lm&&lmd)setReady(true);};
     const u1=fbListen('members',v=>{setMembers(Array.isArray(v)?v:v?Object.values(v):[]);lm=true;check();});
     const u2=fbListen('months',v=>{setMonthData(v||{});lmd=true;check();});
-    const u3=fbListen('meirTotal',v=>{setMeirTotal(v==null?20800:v);});
+    const u3=fbListen('meirAdded',v=>setMeirAdded(v||0));
     return()=>{u1();u2();u3();};
   },[]);
 
@@ -205,15 +208,15 @@ function App(){
       )}
 
       <div style={{maxWidth:600,margin:'0 auto',padding:'14px 12px'}}>
-        {tab==='main'&&<MainTab members={activeMembers} monthData={monthData} selMonth={selMonth} setSelMonth={setSelMonth} meirTotal={meirTotal} unlocked={unlocked}/>}
-        {tab==='members'&&<MembersTab members={members} meirTotal={meirTotal}/>}
+        {tab==='main'&&<MainTab members={activeMembers} monthData={monthData} selMonth={selMonth} setSelMonth={setSelMonth} meirAdded={meirAdded} unlocked={unlocked}/>}
+        {tab==='members'&&<MembersTab members={members}/>}
       </div>
     </div>
   );
 }
 
 // ── MAIN TAB ─────────────────────────────────────────────────
-function MainTab({members,monthData,selMonth,setSelMonth,meirTotal,unlocked}){
+function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
   const[search,setSearch]=useState('');
   const nFridays=countFridays(selMonth);
   const fullAmount=nFridays*RATE;
@@ -300,7 +303,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirTotal,unlocked}){
               <div style={{color:'#a7f3d0',fontSize:12,fontWeight:600}}>בקשה ממאיר — {nFridays} ימי שישי, {members.length} אברכים</div>
               <div style={{color:'#fff',fontWeight:800,fontSize:14,marginTop:2}}>סכום לגביה החודש</div>
             </div>
-            <div style={{color:'#fde68a',fontWeight:800,fontSize:28}}>₪{fmt(meirTotal??20800)}</div>
+            <div style={{color:'#fde68a',fontWeight:800,fontSize:28}}>₪{fmt(MEIR_BASE[nFridays]+meirAdded*MEIR_PER_ADDED[nFridays])}</div>
           </div>
         </div>
       )}
@@ -416,7 +419,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirTotal,unlocked}){
 }
 
 // ── MEMBERS TAB ───────────────────────────────────────────────
-function MembersTab({members,meirTotal}){
+function MembersTab({members}){
   const[form,setForm]=useState({name:'',active:true});
   const[editing,setEditing]=useState(null);
   const[showForm,setShowForm]=useState(false);
@@ -433,9 +436,8 @@ function MembersTab({members,meirTotal}){
       list.push({...form,id:newId});
       // אברך חדש מקבל אוטומטית סימון "מלא" לחודש הנוכחי (400/500 לפי מס' ימי שישי)
       fbSet(`months/${nowKey()}/${newId}`,{lates:0,absents:0,confirmed:true});
-      // "בקשה ממאיר" הוא סכום קבוע שגדל רק בהוספת אברך — לא מושפע מחיסור/איחור
-      const addAmount=countFridays(nowKey())*RATE;
-      fbSet('meirTotal',(meirTotal??20800)+addAmount);
+      // "בקשה ממאיר": כל אברך חדש מוסיף לתוספת (המונה לא יורד במחיקה או בהפיכה ללא פעיל)
+      db.ref(`${FB_PATH}/meirAdded`).transaction(v=>(v||0)+1);
     }
     fbSet('members',list);
     setForm({name:'',active:true});setEditing(null);setShowForm(false);
