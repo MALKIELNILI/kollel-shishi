@@ -462,6 +462,12 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
                   padding:'9px 14px'}}>
                 ✓ מלא{confirmed&&isFull?` (₪${fmt(fullAmount)})`:''}
               </button>
+              {(d.lates||0)>0&&(
+                <button onClick={()=>fbSet(`months/${selMonth}/${mem.id}`,{...d,lates:0,confirmed:true})}
+                  style={{padding:'9px 14px',background:'#fff7ed',color:'#c2410c',border:'1.5px solid #fdba74',borderRadius:9,fontWeight:700,cursor:'pointer',fontSize:13}}>
+                  ↺ נקה איחורים
+                </button>
+              )}
 
               <Counter
                 label="חיסור" emoji="✕"
