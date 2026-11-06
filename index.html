@@ -240,7 +240,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
     const t=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
     db.ref(`${FB_PATH}/arrivals/${todayKey()}/${mem.id}`).set(t);
   };
-  // דוח הגעות לחודש: לכל אברך, שעת ההגעה בכל יום שישי, וכמה פעמים בחלון 9:02–9:05 וכמה אחרי 9:05
+  // דוח הגעות לחודש: לכל אברך, שעת ההגעה בכל יום שישי, וכמה פעמים הגיע בין 9:00 ל-9:05 (נחשב איחור) וכמה אחרי 9:05
   const fridays=(()=>{
     const[y,m]=selMonth.split('-').map(Number);
     const out=[];let d=new Date(y,m-1,1);
@@ -253,7 +253,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
     const times=fridays.map(f=>{
       const t=allArrivals[f]?.[mem.id]||null;
       const v=toMin(t);
-      if(v!==null){if(v>=9*60+2&&v<=9*60+5)inWindow++;if(v>9*60+5)late++;}
+      if(v!==null){if(v>=9*60&&v<=9*60+5)inWindow++;if(v>9*60+5)late++;}
       return t;
     });
     return{times,inWindow,late};
@@ -369,7 +369,7 @@ function MainTab({members,monthData,selMonth,setSelMonth,meirAdded,unlocked}){
                 <tr style={{borderBottom:'2px solid #e5e7eb'}}>
                   <th style={{padding:6,textAlign:'right'}}>אברך</th>
                   {fridays.map(f=><th key={f} style={{padding:6}}>{f.slice(8)}/{f.slice(5,7)}</th>)}
-                  <th style={{padding:6,color:'#0369a1'}}>9:02–9:05</th>
+                  <th style={{padding:6,color:'#d97706'}}>איחור 9:00–9:05</th>
                   <th style={{padding:6,color:'#dc2626'}}>אחרי 9:05</th>
                 </tr>
               </thead>
